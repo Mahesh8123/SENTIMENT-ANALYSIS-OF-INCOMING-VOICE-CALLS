@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Details</title>
+    <style>
+        /* Inline styles for this page */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+
+        .signup-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: 100px auto;
+            text-align: center;
+        }
+
+        input[type=text], input[type=password], select {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        /* Additional styles for specific form fields */
+        #email, #age {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .btn-container {
+            margin-top: 20px; /* Add margin to separate from other elements */
+            text-align: center; /* Center-align the button */
+        }
+        .btn {
+            width: 100%; /* Make the button full-width */
+            padding: 14px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 16px;
+            margin-top: 20px; /* Add margin to separate from other elements */
+        }
+
+        .btn:hover {
+            background-color: #45a049;
+        }
+        /* Styles for popup message */
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #333; /* Change background color */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: none; /* Hidden by default */
+        }
+
+        /* Styles for the button in the popup */
+        .popup .btn {
+            margin-top: 10px;
+            background-color: #4CAF50; /* Keep button color same as other buttons */
+        }
+          /* Error message style */
+          .error {
+            color: red;
+            font-size: 12px;
+            margin-top: 5px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>User Details</h1>
+    <form id="details-form" action="{{ url_for('submit_details') }}" method="POST">
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+            <div id="name-error" class="error"></div> <!-- Error message container for name field -->
+
+        </div>
+        <div class="form-group">
+            <label for="contact_number">Contact Number:</label>
+            <input type="text" id="contact_number" name="contact_number" required>
+            <div id="contact-error" class="error"></div> <!-- Error message container for contact number field -->
+
+        </div>
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+            <div id="email-error" class="error"></div> <!-- Error message container for email field -->
+
+        </div>
+        <div class="form-group">
+            <label for="age">Age:</label>
+            <input type="number" id="age" name="age" required>
+        </div>
+        <div class="form-group">
+            <label for="gender">Gender:</label>
+            <select id="gender" name="gender" required>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Others">Others</option>
+
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="company">Company:</label>
+            <select id="company" name="company" required>
+                <option value="Amazon">Amazon</option>
+                <option value="Flipkart">Flipkart</option>
+                <option value="Meesho">Meesho</option>
+                <option value="Instamart">Instamart</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="product">Product:</label>
+            <select id="product" name="product" required>
+                <option value="Clothes">Clothes</option>
+                <option value="Accessories">Accessories</option>
+                <option value="Shoes">Shoes</option>
+                <option value="Essentials">Essentials</option>
+            </select>
+        </div>
+        <div class="btn-container">
+            <button type="submit" class="btn">Submit</button>
+        </div>
+    </form>
+    <!-- Popup message -->
+    <div id="popup" class="popup" action="/sentiment" method="POST">
+        Details submitted successfully
+        <button class="btn" onclick="redirectToAnalysis()">Let's Analyse</button>
+    </div>
+    <div id="response-message"></div>
+    <script>
+        function redirectToAnalysis() {
+            window.location.href = "/sentiment_analysis";
+        }
+
+        function redirectToAnalysis() {
+            window.location.href = "/sentiment_analysis";
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelector('#details-form').onsubmit = function () {
+                // Validate name: should only contain letters and dots
+                var name = document.getElementById('name').value;
+                if (!/^[A-Za-z.]+$/.test(name)) {
+                    document.getElementById('name-error').textContent = 'Name should only contain letters and dots.';
+                    return false;
+                } else {
+                    document.getElementById('name-error').textContent = '';
+                }
+
+                // Validate contact number: should be a 10-digit integer
+                var contactNumber = document.getElementById('contact_number').value;
+                if (!/^\d{10}$/.test(contactNumber)) {
+                    document.getElementById('contact-error').textContent = 'Contact number should be a 10-digit integer.';
+                    return false;
+                } else {
+                    document.getElementById('contact-error').textContent = '';
+                }
+                
+        // Send form data to the server using AJAX
+        const formData = new FormData(this);
+        fetch('/submit_details', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Display success message
+                const popup = document.querySelector('#popup');
+                popup.style.display = 'block';
+            } else {
+                // Handle error condition if needed
+                alert('An error occurred. Please try again later.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Handle error condition if needed
+            alert('An error occurred. Please try again later.');
+        });
+        // Prevent the default form submission
+        return false;
+    };
+});
+
+    </script>
+</body>
+</html>

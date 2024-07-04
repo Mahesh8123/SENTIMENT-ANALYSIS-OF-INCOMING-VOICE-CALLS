@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiment Analysis</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" integrity="sha512-xLa7yPDXd5Ie2Lrnz2SZBlp86EL/OPqVrqVfGMp8X0I8uhMzINiMUZ0gFJyss2CJZaOZfD/b1C5BQL0LoxzX/Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/landing.css') }}">
+    <!-- Add your custom CSS file or styles here -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            text-align: center;
+            color: #333;
+        }
+        form {
+            text-align: center;
+            margin-top: 30px;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .custom-file-upload {
+            border: 1px solid #28a745; /* Change border color to match analyze button */
+            display: inline-block;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            background-color: #28a745; /* Change background color to match analyze button */
+            color: #fff;
+            transition: background-color 0.3s;
+            margin-top: 10px; /* Add margin to separate the button */
+        }
+        .custom-file-upload:hover {
+            background-color: #218838; /* Darker shade of green on hover */
+        }
+        .upload-icon {
+            margin-right: 10px;
+        }
+        .file-name {
+            margin-left: 10px;
+        }
+        .output {
+            margin-top: 30px;
+            text-align: center;
+        }
+        .output p {
+            font-size: 18px;
+            color: #333;
+            line-height: 1.6;
+        }
+        .live-input,
+        .recorded-input {
+            display: none;
+        }
+        .option-selector {
+            text-align: center;
+            margin-bottom: 20px; /* Add space below the selector */
+        }
+        #audio-option {
+            width: 200px; /* Adjust the width of the selector */
+            padding: 10px; /* Add padding for better appearance */
+        }
+        button[type="submit"] {
+            background-color: #28a745; /* Set the background color to green */
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px; /* Add margin to separate the button */
+        }
+        button[type="submit"]:hover {
+            background-color: #218838; /* Darker shade of green on hover */
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .loading i {
+            font-size: 24px;
+            color: #28a745; /* Match the color with analyze button */
+            margin-right: 10px;
+        }
+        .view-analysis {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .view-analysis a {
+            text-decoration: none;
+            background-color: #28a745; /* Change background color to match analyze button */
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .view-analysis a:hover {
+            background-color: #218838; /* Darker shade on hover */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SENTIMENT ANALYSIS OF INCOMING VOICE CALLS</h1>
+        <form method="POST" enctype="multipart/form-data" id="uploadForm">
+            <select id="audio-option" name="audio-option" onchange="toggleInput()">
+                <option value="live">Live</option>
+                <option value="recorded">Recorded</option>
+            </select>
+            <div class="live-input" id="live-input">
+                <!-- No additional input fields required for live option -->
+            </div>
+            <div class="recorded-input" id="recorded-input" style="display: none;">
+                <!-- File input for recorded option -->
+                <label for="file-upload" class="custom-file-upload">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i> Choose Audio File
+                </label>
+                <input id="file-upload" type="file" name="audio" accept=".mp3, .wav" onchange="showFileName(this)">
+                <span class="file-name" id="file-name">No file chosen</span>
+            </div>
+            <button type="submit" class="custom-file-upload">Analyze</button>
+            <!--<button type="button" class="load-button" id="load-button" disabled>Loading...</button>-->
+        </form>
+
+        <div class="loading" id="loading">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+
+        <div class="output">
+            {% if transcribed_text %}
+            <h2>Transcribed Text:</h2>
+            <p>{{ transcribed_text }}</p>
+            {% endif %}
+
+            {% if sentiment %}
+            <h2>Sentiment:</h2>
+            <p>{{ sentiment }}</p>
+            <div class="view-analysis" id="view-analysis">
+                <a href="/latest_sentiment_chart">View Analysis</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function showFileName(input) {
+            const fileName = input.files[0].name;
+            document.getElementById('file-name').textContent = fileName;
+        }
+
+        function toggleInput() {
+            var option = document.getElementById("audio-option").value;
+            if (option === "live") {
+                document.getElementById("live-input").style.display = "block";
+                document.getElementById("recorded-input").style.display = "none";
+                document.getElementById("file-upload").value = ''; // Clear file input value
+            } else {
+                document.getElementById("live-input").style.display = "none";
+                document.getElementById("recorded-input").style.display = "block";
+            }
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            document.getElementById('loading').style.display = 'block'; // Show loading indicator
+        });
+
+        // Show view analysis button when sentiment is displayed
+        document.addEventListener('DOMContentLoaded', function() {
+            var output = document.querySelector('.output');
+            if (output.querySelector('p')) {
+                document.getElementById('view-analysis').style.display = 'block';
+            }
+        });
+    </script>
+
+</body>
+</html>

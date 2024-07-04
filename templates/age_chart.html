@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGE DISTRIBUTION</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        header {
+            background-color: #4CAF50;
+            padding: 20px;
+            color: #fff;
+            text-align: center;
+        }
+        img {
+            display: block;
+            margin: 20px auto;
+        }
+        .message {
+            text-align: center;
+            margin-top: 20px;
+            color: red;
+        }
+        .btn-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>AGE DISTRIBUTION</h1>
+    </header>
+    {% if plot_url %}
+        <img src="data:image/png;base64,{{ plot_url }}" alt="Sentiment Chart">
+    {% else %}
+        <p class="message">{{ message }}</p>
+    {% endif %}
+    <div class="btn-container">
+        <a href="/dashboard" class="btn">Back to Dashboard</a>
+    </div>
+    <footer>
+        <p style="text-align: center;">&copy; 2024 Age Distribution. All rights reserved.</p>
+    </footer>
+</body>
+</html>

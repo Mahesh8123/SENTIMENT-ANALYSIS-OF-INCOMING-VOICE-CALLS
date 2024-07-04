@@ -1,0 +1,499 @@
+import math
+import os
+import io
+import nltk
+import speech_recognition as sr
+from nltk.sentiment import SentimentIntensityAnalyzer
+from flask import Flask, render_template, request, session, redirect, jsonify, url_for
+import mysql.connector
+import matplotlib
+matplotlib.use('Agg')  # Use Agg backend for non-interactive mode
+import matplotlib.pyplot as plt
+import base64
+import numpy as np
+
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
+
+# Connect to the database
+mydb = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="Priya*123",
+    database="saoivc"
+)
+
+# Initialize the sentiment analyzer
+sia = SentimentIntensityAnalyzer()
+
+# Load the sentiment lexicon
+nltk.download('vader_lexicon')
+
+# Initialize the recognizer
+r = sr.Recognizer()
+
+# Function to record audio and convert to text
+def record_text():
+    try:
+        with sr.Microphone() as source:
+            print("Recording...")
+            r.adjust_for_ambient_noise(source, duration=0.5)  # Adjust the duration to better detect pauses
+            audio = r.listen(source)
+            print("Recording finished.")
+        text = r.recognize_google(audio)
+        return text
+    except sr.RequestError as e:
+        print("Could not request results from Google Speech Recognition service; {0}".format(e))
+        return None
+    except sr.UnknownValueError:
+        print("Google Speech Recognition could not understand audio")
+        return None
+
+# Function to perform sentiment analysis
+def analyze_sentiment(audio_text):
+    try:
+        # Analyze sentiment
+        sentiment_scores = sia.polarity_scores(audio_text)
+        compound_score = sentiment_scores['compound']
+        print("Compound Score:", compound_score)  # Add this line for debugging
+
+        if math.isnan(compound_score):
+            # Handle NaN values by setting a default sentiment and score
+            sentiment = 'Neutral'
+            compound_score = 0.0
+        elif compound_score >= 0.05:
+            sentiment = 'Positive'
+        elif compound_score <= -0.05:
+            sentiment = 'Negative'
+        else:
+            sentiment = 'Neutral'
+
+        # Generate the pie chart
+        labels = ['Positive', 'Negative']
+        values = [compound_score if compound_score >= 0 else 0, abs(compound_score) if compound_score < 0 else 0]
+
+        # Replace NaN values with zeros
+        values = [0 if math.isnan(v) else v for v in values]
+
+        print("Values:", values)  # Add this line for debugging
+
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.pie(values, labels=labels, autopct='%1.1f%%')
+        ax.axis('equal')
+        ax.set_title('Sentiment Analysis')
+
+        # Convert the plot to a base64-encoded string
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png')
+        buf.seek(0)
+        plot_url = base64.b64encode(buf.getvalue()).decode('utf-8')
+
+        # Return the sentiment, plot URL, and compound score
+        return sentiment, plot_url, compound_score
+    except Exception as e:
+        print("Error during sentiment analysis:", e)
+        return None, None, None
+
+# Function to populate sentiment_analysis table
+def populate_sentiment_analysis():
+    try:
+        mycursor = mydb.cursor()
+
+        # SELECT command to retrieve data from source tables
+        sql_select = """
+            SELECT sa.cust_id, sa.user_id, sa.trans_id, c.username AS customer_name, ud.name AS user_name,
+                   ud.age, ud.gender, ud.company, ud.product, t.transcripted_text AS transcripted_text,
+                   t.sentiment, t.compound_score
+            FROM sentiment_analysis sa
+            INNER JOIN customer c ON sa.cust_id = c.id
+            INNER JOIN user_details ud ON sa.user_id = ud.id
+            INNER JOIN transcriptions t ON sa.trans_id = t.id
+        """
+
+        mycursor.execute(sql_select)
+        result = mycursor.fetchall()
+
+        if result:
+            # Iterate through the fetched rows and print them for debugging
+            for row in result:
+                print(row)
+
+            # Now, proceed with the INSERT operation into sentiment_analysis table
+            sql_insert = """
+                INSERT INTO sentiment_analysis (cust_id, user_id, trans_id, customer_name, user_name,
+                                                age, gender, company, product, transcripted_text, sentiment, compound_score)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+
+            # Insert fetched data into sentiment_analysis table
+            mycursor.executemany(sql_insert, result)
+            mydb.commit()
+
+            print("Sentiment analysis table populated successfully.")
+        else:
+            print("No data found in source tables.")
+    except Exception as e:
+        print("Error during populating sentiment analysis table:", e)
+
+
+# Call the function to populate the sentiment_analysis table
+populate_sentiment_analysis()
+
+import matplotlib.pyplot as plt
+import io
+import base64
+
+# Define route for the sentiment analysis page
+@app.route('/sentiment_analysis', methods=['GET', 'POST'])
+def sentiment_analysis():
+    if request.method == 'POST':
+        # Record audio and transcribe
+        audio_text = record_text()
+
+        if audio_text:
+            # Perform sentiment analysis
+            sentiment, plot_url, compound_score = analyze_sentiment(audio_text)
+
+            if sentiment is not None:
+                # Get username from session
+                username = session.get('user')
+
+                # Lookup customer ID using username
+                mycursor = mydb.cursor()
+                query = "SELECT customer_id FROM customer WHERE username = %s"
+                mycursor.execute(query, (username,))
+                result = mycursor.fetchone()
+
+                if result:
+                    customer_id = result[0]  # Extract customer ID from the result
+
+                    # Get user_id from session
+                    user_id = session.get('user_id')
+
+                    # Store analysis result in the database
+                    store_analysis_result(audio_text, sentiment, compound_score, user_id, customer_id)
+
+                    # Calculate sentiment counts
+                    positive_count = 1 if sentiment == 'Positive' else 0
+                    negative_count = 1 if sentiment == 'Negative' else 0
+                    neutral_count = 1 if sentiment == 'Neutral' else 0
+
+                    # Create a pie chart
+                    labels = ['Positive', 'Negative', 'Neutral']
+                    sizes = [positive_count, negative_count, neutral_count]
+                    colors = ['#ff9999', '#66b3ff', '#99ff99']
+                    explode = (0.1, 0, 0)  # explode 1st slice
+                    plt.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%', startangle=140)
+                    plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+
+                    # Convert the plot to a base64-encoded string
+                    buffer = io.BytesIO()
+                    plt.savefig(buffer, format='png')
+                    buffer.seek(0)
+                    plot_url = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+                    # Render template with sentiment result, transcribed text, sentiment analysis plot, and sentiments count
+                    return render_template('sentiment_analysis.html', sentiment=sentiment, plot_url=plot_url, transcribed_text=audio_text)
+                else:
+                    return "User not found in database"
+            else:
+                # If sentiment analysis failed, return an error message
+                return render_template('sentiment_analysis.html', error_message="Failed to analyze sentiment")
+        else:
+            # If audio transcription failed, return an error message
+            return render_template('sentiment_analysis.html', error_message="Failed to transcribe audio")
+
+    return render_template('sentiment_analysis.html')
+
+# Function to store analysis result in the database
+def store_analysis_result(text, sentiment, compound_score, user_id, customer_id):
+    try:
+        mycursor = mydb.cursor()
+
+        # Insert the analysis result into Transcriptions table
+        sql_transcriptions = "INSERT INTO Transcriptions (transcripted_text, sentiment, compound_score, user_id, customer_id) VALUES (%s, %s, %s, %s, %s)"
+        values_transcriptions = (text, sentiment, compound_score, user_id, customer_id)
+        mycursor.execute(sql_transcriptions, values_transcriptions)
+        mydb.commit()
+
+        print("Transcriptions table updated successfully.")
+    except Exception as e:
+        print("Error during database operation:", e)
+
+# Define route for the landing page and user login
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if 'user' in session:
+        # Check if the user is an admin
+        if session.get('user_type') == 'admin':
+            return redirect('/dashboard')
+        else:
+            return redirect('/details')
+    else:
+        if request.method == 'POST':
+            if request.form['action'] == 'signup':
+                return redirect('/signup')
+            elif request.form['action'] == 'login':
+                return redirect('/login')
+        return render_template('landing.html')
+
+
+# Inside the login route
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if not username or not password:
+            return render_template('login.html', message="Please provide both username and password")
+        
+        user = authenticate_user(username, password)
+        if user:
+            session['user_id'] = user[0]  # Assuming user ID is the first column in the users table
+            session['user_details_id'] = user[1]  # Assuming user details ID is the second column in the user_details table
+            session['user'] = username
+            
+            # Check user type and redirect accordingly
+            if user[3] == 'admin':
+                session['user_type'] = 'admin'  # Add user type to the session
+                return redirect('/dashboard')
+            else:
+                session['user_type'] = 'customer'  # Add user type to the session
+                return redirect('/details')
+        else:
+            return render_template('login.html', message="Invalid username or password")
+    
+    return render_template('login.html')
+
+# Function to authenticate user
+def authenticate_user(username, password):
+    mycursor = mydb.cursor()
+    query = "SELECT * FROM customer WHERE username = %s AND password = %s"
+    values = (username, password)
+    mycursor.execute(query, values)
+    user = mycursor.fetchone()
+    return user
+
+# Define route for signup page
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user_type = request.form.get('user_type')
+
+        if not username or not password or not user_type:
+            return render_template('signup.html', message="Please provide all the required information")
+
+        # Check if user already exists
+        mycursor = mydb.cursor()
+        query = "SELECT * FROM customer WHERE username = %s"
+        values = (username,)
+        mycursor.execute(query, values)
+        existing_user = mycursor.fetchone()
+
+        if existing_user:
+            return render_template('signup.html', message="User already exists")
+
+        # Insert new user into the database
+        query = "INSERT INTO customer (username, password, user_type) VALUES (%s, %s, %s)"
+        values = (username, password, user_type)
+        mycursor.execute(query, values)
+        mydb.commit()  # Commit changes to the database
+
+        # Redirect to login page after successful signup
+        return redirect('/login')
+    
+    return render_template('signup.html')
+
+# Route for the user details page
+@app.route('/details')
+def user_details():
+    if 'user' in session:
+        user_type = session.get('user_type')
+        if user_type == 'admin':
+            return redirect('/dashboard')
+        else:
+            customer_id = session.get('customer_id')  # Retrieve customer ID from session
+            return render_template('index.html', customer_id=customer_id)  # Pass customer ID to the template
+    else:
+        return redirect('/login')
+
+# Route for submitting user details (if needed)
+@app.route('/submit_details', methods=['POST'])
+def submit_details():
+    if request.method == 'POST':
+        # Extract form data
+        name = request.form.get('name')
+        contact_number = request.form.get('contact_number')
+        email = request.form.get('email')
+        age = request.form.get('age')
+        gender = request.form.get('gender')
+        company = request.form.get('company')
+        product = request.form.get('product')
+        
+        # Get username from session
+        username = session.get('user')
+
+        mycursor = mydb.cursor()
+        
+        # Lookup customer ID using username
+        query = "SELECT customer_id FROM customer WHERE username = %s"
+        mycursor.execute(query, (username,))
+        result = mycursor.fetchone()
+        
+        if result:
+            customer_id = result[0]  # Extract customer ID from the result
+            sql = "INSERT INTO user_details (name, contact_number, email, age, gender, company, product, customer_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+            values = (name, contact_number, email, age, gender, company, product, customer_id)
+
+            try:
+                mycursor.execute(sql, values)
+                mydb.commit()
+                # Redirect to the sentiment_analysis route
+                return jsonify({"success": True, "redirect_url": "/sentiment_analysis"})
+            except Exception as e:
+                print("Error:", e)
+                return jsonify({"success": False, "error_message": "Failed to store user details"})
+        else:
+            return jsonify({"success": False, "error_message": "User not found in database"})
+    else:
+        return "Method Not Allowed", 405
+
+# Inside the route for the dashboard page
+@app.route('/dashboard')
+def dashboard():
+    if 'user' not in session:
+        return redirect('/login')
+
+    # Check if the user is an admin
+    if session.get('user') and session.get('user_type') == 'admin':
+        # Connect to MySQL database
+        mydb = mysql.connector.connect(
+            host="localhost",
+            user="root",  # Replace with your MySQL username
+            password="Priya*123",  # Replace with your MySQL password
+            database="saoivc"  # Replace with your MySQL database name
+        )
+
+        # Cursor object to execute queries
+        mycursor = mydb.cursor()
+
+        try:
+            # Query to fetch sentiment data
+            mycursor.execute("SELECT sentiment, COUNT(*) FROM transcriptions GROUP BY sentiment")
+            result = mycursor.fetchall()
+
+            # Extracting data for sentiment distribution pie chart
+            labels1 = []
+            sizes1 = []
+            for row in result:
+                labels1.append(row[0])
+                sizes1.append(row[1])
+
+            if sizes1:  # Check if there is data to display
+                # Plotting the sentiment distribution pie chart
+                colors1 = ['#ff9999', '#66b3ff', '#99ff99']
+                plt.figure(figsize=(8, 6))
+                plt.subplot(2, 2, 1)
+                plt.pie(sizes1, labels=labels1, colors=colors1, autopct='%1.1f%%', startangle=140)
+                plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+                plt.title('Sentiment Distribution')
+
+                # Save the plot as a PNG file
+                plt.savefig('static/sentiment_distribution.png')
+
+            else:
+                print("No data found for sentiment distribution.")
+
+            # Query to fetch gender distribution data
+            mycursor.execute("SELECT gender, COUNT(*) FROM user_details GROUP BY gender")
+            result = mycursor.fetchall()
+
+            # Extracting data for gender distribution pie chart
+            labels2 = []
+            sizes2 = []
+            for row in result:
+                labels2.append(row[0])
+                sizes2.append(row[1])
+
+            if sizes2:  # Check if there is data to display
+                # Plotting the gender distribution pie chart
+                colors2 = ['#ffcc99', '#ff9999']
+                plt.subplot(2, 2, 2)
+                plt.pie(sizes2, labels=labels2, colors=colors2, autopct='%1.1f%%', startangle=140)
+                plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+                plt.title('Gender Distribution')
+
+            else:
+                print("No data found for gender distribution.")
+
+            # Query to fetch age distribution data
+            mycursor.execute("SELECT age, COUNT(*) FROM user_details GROUP BY age")
+            result = mycursor.fetchall()
+
+            # Extracting data for age distribution pie chart
+            labels3 = []
+            sizes3 = []
+            for row in result:
+                labels3.append(str(row[0]))  # Convert age to string for labeling
+                sizes3.append(row[1])
+
+            if sizes3:  # Check if there is data to display
+                # Plotting the age distribution pie chart
+                plt.subplot(2, 2, 3)
+                plt.pie(sizes3, labels=labels3, autopct='%1.1f%%', startangle=140)
+                plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+                plt.title('Age Distribution')
+
+            else:
+                print("No data found for age distribution.")
+
+            # Query to fetch product usage data
+            mycursor.execute("SELECT product, COUNT(*) FROM user_details GROUP BY product")
+            result = mycursor.fetchall()
+
+            # Extracting data for product usage pie chart
+            labels4 = []
+            sizes4 = []
+            for row in result:
+                labels4.append(row[0])
+                sizes4.append(row[1])
+
+            if sizes4:  # Check if there is data to display
+                # Plotting the product usage pie chart
+                plt.subplot(2, 2, 4)
+                plt.pie(sizes4, labels=labels4, autopct='%1.1f%%', startangle=140)
+                plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+                plt.title('Product Usage')
+
+            else:
+                print("No data found for product usage.")
+
+            # Save the overall plot as a PNG file
+            plt.tight_layout()
+            plt.savefig('static/dashboard_pie_charts.png')
+
+        except Exception as e:
+            print("Error:", e)
+
+        finally:
+            # Close MySQL connection
+            mydb.close()
+
+        # Render the dashboard template with the overall plot
+        return render_template('dashboard.html')
+    else:
+        return redirect('/login')  # Redirect non-admin users to the login page
+
+# Define route to logout
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    session.pop('user_type', None)
+    session.pop('customer_id', None)
+    return redirect('/')
+
+# Run the app
+if __name__ == '__main__':
+    app.run(debug=True)

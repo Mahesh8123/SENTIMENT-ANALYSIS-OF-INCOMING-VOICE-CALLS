@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/landing.css') }}">
+
+    <title>Sentiment Analysis Homepage</title>
+    <style>
+        h2{
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Welcome to Sentiment Analysis</h1>
+    </header>
+    <main>
+        <section>
+            <h2>About Sentiment Analysis</h2>
+            <p>Sentiment analysis is the process of analyzing text data to determine the sentiment expressed within it. It involves techniques from natural language processing (NLP) and machine learning to identify and categorize the emotions or opinions expressed in text.</p>
+            <p>Sentiment analysis has various applications across industries, including customer feedback analysis, social media monitoring, market research, and more. By understanding the sentiment of text data, organizations can gain valuable insights into customer satisfaction levels, identify emerging trends, and make data-driven decisions.</p>
+        </section>
+        <div class="btn-container">
+            <form action="/signup" method="POST">
+                <button type="submit" class="btn">Sign Up</button>
+            </form>
+            <form action="/login" method="POST">
+                <button type="submit" class="btn">Login</button>
+            </form>
+        </div>
+    </main>
+    <footer>
+        <p>&copy; 2024 Sentiment Analysis. All rights reserved.</p>
+    </footer>
+</body>
+</html>
+ 

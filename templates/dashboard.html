@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <!-- Include any CSS styling here -->
+    <style>
+        /* Add CSS styling for the page layout */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        p {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .btn-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        /* Add any additional CSS styling as needed */
+        .link-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .link-table th, .link-table td {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        .link-table th {
+            background-color: #4CAF50;;
+            color: #fff;
+        }
+        .link-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .link-table tr:hover {
+            background-color: #ddd;
+        }
+        .link-table a {
+            text-decoration: none;
+            color: #4CAF50;;
+        }
+    </style>
+    <!-- Include Chart.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome</h1>
+        <p>Hello Admin! This dashboard provides you with insights and analysis of data stored in the database.</p>
+        <!-- Links in tabular column style -->
+        <table class="link-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Gender Distribution</td>
+                    <td><a href="/gender_distribution">View Gender Distribution</a></td>
+                </tr>             
+                <tr>
+                    <td>Age Distribution</td>
+                    <td><a href="/age_distribution">View Age Distribution</a></td>
+                </tr>
+                <tr>
+                    <td>Company Distribution</td>
+                    <td><a href="/company_distribution">View Company Distribution</a></td>
+
+                </tr>
+                <tr>
+                    <td>Product Distribution</td>
+                    <td><a href="/product_distribution">View Product Distribution</a></td>
+                </tr>
+                <tr>
+                    <td>Sentiment Distribution</td>
+                    <td><a href="/chart">View Sentiment Distribution</a></td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="btn-container">
+            <a href="/login" class="btn">EXIT</a>
+        </div>
+    </div>
+    <footer>
+        <p style="text-align: center;">&copy; 2024 Dashboard. All rights reserved.</p>
+    </footer>
+</body>
+</html>
